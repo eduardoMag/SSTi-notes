@@ -1,0 +1,10 @@
+view and download tools
+
+https://github.com/rebootuser/LinEnum
+https://github.com/carlospolop/privilege-escalation-awesome-scripts-suite/tree/master/linPEAS
+https://github.com/lukechilds/reverse-shell
+
+
+
+
+

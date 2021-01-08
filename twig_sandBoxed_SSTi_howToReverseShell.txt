@@ -1,0 +1,32 @@
+Twig (sandboxed)
+Twig's sandbox introduces additional restrictions. It disables attribute retrieval and adds a whitelist of functions and method calls, so by default we outright can't call any functions, even methods on a developer-supplied object. Taken at face value, this makes exploitation pretty much impossible. Unfortunately, the source tells a different story:
+
+public function checkMethodAllowed($obj, $method)
+{
+  if ($obj instanceof Twig_TemplateInterface || $obj instanceof Twig_Markup) {
+        return true;
+    }
+Thanks to this snippet we can call any method on objects that implement Twig_TemplateInterface, which happens to include _self. The _self object's displayBlock method offers a high-level gadget of sorts:
+
+public function displayBlock($name, array $context, array $blocks = array(), $useBlocks = true)
+{
+    $name = (string) $name;
+    if ($useBlocks && isset($blocks[$name])) {
+        $template = $blocks[$name][0];
+        $block = $blocks[$name][1];
+    } elseif (isset($this->blocks[$name])) {
+        $template = $this->blocks[$name][0];
+        $block = $this->blocks[$name][1];
+    } else {
+        $template = null;
+        $block = null;
+    }
+    if (null !== $template) {
+        try {
+            $template->$block($context, $blocks);
+        } catch (Twig_Error $e) {
+The $template->$block($context, $blocks); call can be abused to bypass the function whitelist and call any method on any object the user can obtain a reference to. The following code will invoke the vulnerableMethod method on the userObject object, with no arguments.
+
+{{_self.displayBlock("id",[],{"id":[userObject,"vulnerableMethod"]})}}
+This can't be used to exploit the Twig_Environment->getFilter() method used earlier as there is no way to obtain a reference to the Environment object. However, it does mean that we can invoke methods on any objects the developer has passed into the template - the _context object's attributes can be iterated over to see if anything useful is in scope. The XWiki example later illustrates exploiting a developer-provided class.
+

